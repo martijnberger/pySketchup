@@ -14,31 +14,21 @@ logging.basicConfig(format='%(levelname)s %(asctime)s %(funcName)s %(lineno)d %(
 
 
 
-def skp_find_section(stream, max_nlen, max_version, version):
-    while True:
-        #log.debug(hex(stream.tell()))
+def skp_find_section(stream):
+    loop = True
+    while loop == True:
         try:
             while struct.unpack('B',stream.read(1))[0] != int(0xff):
                 pass
 
             offset = stream.tell()
             if struct.unpack('B',stream.read(1))[0] != int(0xff):
-                #stream.seek(offset)
                 stream.seek(offset)
-                #return skp_find_section(stream, max_nlen, max_version, version)
-                continue
 
             ver = read_int16_le(stream)
-            if ver > max_version:
-                #stream.seek(offset)
-                stream.seek(offset)
-                #return skp_find_section(stream, max_nlen, max_version, version)
-                continue
 
             nlen = read_int16_le(stream)
-            if nlen > max_nlen:
-                #stream.seek(offset)
-                #return skp_find_section(stream, max_nlen, max_version, version)
+            if nlen == 0:
                 stream.seek(offset)
                 continue
 
@@ -46,19 +36,14 @@ def skp_find_section(stream, max_nlen, max_version, version):
             if len(name) > 0 and name[0] != 'C':
                 stream.seek(offset)
                 continue
-                #return skp_find_section(stream, max_nlen, max_version, version)
 
-            w1 = read_int16_le(stream)
-            stream.seek(-2,1)
-
-            return name, ver, offset
+            yield name, ver, offset
         except UnicodeDecodeError as e:
             stream.seek(offset + 2)
 
 
 def read_CDib(stream):
     unknown = struct.unpack('i',stream.read(4))[0]
-    #length = struct.unpack('i',stream.read(4))[0]
     length = read_int32_le(stream)
     print("Length: {} {}".format(length, hex(length)))
     print(hex(stream.tell()))
@@ -238,8 +223,6 @@ def read_CComponentDefinition(stream):
 
 import sys
 
-#with open('/home/mberger/Desktop/0957_3D-model exterieur + interieur sander 11-04-2012.skp','rb') as f:
-#with open('/Users/mberger/Dropbox/DENC/Schenker/tray.skp','rb') as f:
 with open(sys.argv[1],'rb') as f:
     # Sketchup
     print(read_wchar(f))
@@ -249,12 +232,10 @@ with open(sys.argv[1],'rb') as f:
     print(read_wchar(f))
     f.seek(16,1) #These can be 00'ed without breaking the model ???
     read_wchar(f)
-    #struct.unpack('!l',f.read(4))[0]
-    #f.seek(4,1)
+
     creation_date = datetime.fromtimestamp(read_int32_le(f))
     log.debug(creation_date)
 
-    #print(hex(f.tell()))
     read_char(f)
 
     version_map = {}
@@ -270,9 +251,12 @@ with open(sys.argv[1],'rb') as f:
     sections = []
 
     try:
-        while 1:
-            n , v, offset = skp_find_section(f,10**10,40,20)
+        for n , v, offset in skp_find_section(f):
+            print("SECTION:", end=" ")
+            print(n, v, offset)
             sections.append((n , v, offset))
+            """
+
             if n == 'CDib':
                 print('handle DIB')
                 read_CDib(f)
@@ -300,11 +284,13 @@ with open(sys.argv[1],'rb') as f:
             else:
                 log.debug("Not handled {}".format(n))
                 f.seek(int(0xf),1)
+            """
 
 
     except struct.error as e:
+        print(f.tell())
         import sys
         for section in sections:
             n , v, offset = section
             print("n: {}, {} {}".format(n,v,hex(offset)))
-        sys.exit(0)
+        #sys.exit(0)

@@ -4,19 +4,17 @@ __author__ = 'mberger'
 
 import struct
 import logging
-
 from datetime import datetime
-
 from .util import *
 
 log = logging
 logging.basicConfig(format='%(levelname)s %(asctime)s %(funcName)s %(lineno)d %(message)s', level=logging.DEBUG, file=open('/tmp/sim.log','wb'))
 
 
-
 def skp_find_section(stream):
-    loop = True
-    while loop == True:
+    '''Find all the sections in the sketchup file and their length'''
+    pName, pVer, pOffset = None, None, None
+    while True:
         try:
             while struct.unpack('B',stream.read(1))[0] != int(0xff):
                 pass
@@ -37,9 +35,13 @@ def skp_find_section(stream):
                 stream.seek(offset)
                 continue
 
-            yield name, ver, offset
+            yield pName, pVer, pOffset, offset
+            pName, pVer, pOffset = name, ver, offset
         except UnicodeDecodeError as e:
             stream.seek(offset + 2)
+        except struct.error as e:
+            yield pName, pVer, pOffset, stream.tell()
+            return
 
 
 def read_CDib(stream):
@@ -250,47 +252,40 @@ with open(sys.argv[1],'rb') as f:
 
     sections = []
 
-    try:
-        for n , v, offset in skp_find_section(f):
-            print("SECTION:", end=" ")
-            print(n, v, offset)
-            sections.append((n , v, offset))
-            """
+    for n , v, offset, end_offset in skp_find_section(f):
+        print("SECTION:", end=" ")
+        print(n, v, offset, end_offset)
+        sections.append((n , v, offset, end_offset))
+        """
 
-            if n == 'CDib':
-                print('handle DIB')
-                read_CDib(f)
+        if n == 'CDib':
+            print('handle DIB')
+            read_CDib(f)
 
-            elif n == 'CAttributeNamed':
-                print('handle CAttributeName')
-                read_CAttributeNamed(f)
-            elif n == 'CCamera':
-                print('handle CCamera')
-                read_CCamera(f)
-            elif n == 'CMaterial':
-                print('handle CMaterial')
-                read_CMaterial(f)
-            elif n == 'CArcCurve':
-                pass #f.seek(2000,1)
-            elif n == 'CSkFont':
-                pass
-            elif n == 'CLayer':
-                pass
-            elif n == 'CAttributeContainer':
-                pass
-                #read_CLayer(f)
-            elif n == 'CComponentDefinition':
-                read_CComponentDefinition(f)
-            else:
-                log.debug("Not handled {}".format(n))
-                f.seek(int(0xf),1)
-            """
+        elif n == 'CAttributeNamed':
+            print('handle CAttributeName')
+            read_CAttributeNamed(f)
+        elif n == 'CCamera':
+            print('handle CCamera')
+            read_CCamera(f)
+        elif n == 'CMaterial':
+            print('handle CMaterial')
+            read_CMaterial(f)
+        elif n == 'CArcCurve':
+            pass #f.seek(2000,1)
+        elif n == 'CSkFont':
+            pass
+        elif n == 'CLayer':
+            pass
+        elif n == 'CAttributeContainer':
+            pass
+            #read_CLayer(f)
+        elif n == 'CComponentDefinition':
+            read_CComponentDefinition(f)
+        else:
+            log.debug("Not handled {}".format(n))
+            f.seek(int(0xf),1)
+        """
 
+    sys.exit(0)
 
-    except struct.error as e:
-        print(f.tell())
-        import sys
-        for section in sections:
-            n , v, offset = section
-            print("n: {}, {} {}".format(n,v,hex(offset)))
-        #sys.exit(0)

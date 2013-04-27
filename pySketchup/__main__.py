@@ -42,7 +42,8 @@ def skp_find_section(stream):
             stream.seek(offset + 2)
         except struct.error as e:
             yield pName, pVer, pOffset, stream.tell()
-            return
+            break
+
 
 
 def read_CDib(stream):
@@ -230,8 +231,7 @@ def read_skp_file(f):
 
     header['version'] = read_wchar(f)
     f.seek(16,1) #These can be 00'ed without breaking the model ???
-    read_wchar(f)
-
+    header['junk1'] = read_wchar(f)
     creation_date = datetime.fromtimestamp(read_int32_le(f))
     header['creation_date'] = creation_date
 
@@ -278,14 +278,24 @@ with open(sys.argv[1],'rb') as f:
         version_map2, sections2, header2 = read_skp_file(f2)
 
 
-
         for n, k in sections.items():
             v, offset, end_offset = k
             v2, offset2, end_offset2 = sections2[n]
-            print(n, v,v2)
-            print(md5sum(f, offset, end_offset))
-            print(md5sum(f2, offset2, end_offset2))
+            sum1 = md5sum(f, offset, end_offset)
+            sum2 = md5sum(f2, offset2, end_offset2)
 
+            if sum1 !=  sum2:
+                f_1 = open('/tmp/' + n + '1','wb')
+                f.seek(offset)
+                f_1.write(f.read(end_offset - offset))
+                f_1.close()
+                f_2 = open('/tmp/'+ n + '2','wb')
+                f2.seek(offset2)
+                f_2.write(f2.read(end_offset2 - offset2))
+                f_2.close()
+                print("Difference in sections {}: {} {}".format(n,sum1, sum2))
+            else:
+                print("No Difference sections {}".format(n))
 
 
     sys.exit(0)

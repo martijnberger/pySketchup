@@ -13,7 +13,7 @@ def read_xint16(stream):
 
 def read_char(stream):
     magic = struct.unpack('!I',stream.read(4))[0]
-    print(hex(magic))
+    #print(hex(magic))
     if magic != int(0xffff0000):
         raise UnicodeError("Not a valik skp text magic: {} at {}".format(hex(magic),hex(stream.tell())))
 

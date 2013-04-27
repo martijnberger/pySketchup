@@ -4,6 +4,7 @@ __author__ = 'mberger'
 
 import struct
 import logging
+import sys
 from datetime import datetime
 from .util import *
 
@@ -223,69 +224,100 @@ def read_CComponentDefinition(stream):
 
 
 
-import sys
+def read_skp_file(f):
+    header = {}
+    header['sketchup'] = read_wchar(f)
 
-with open(sys.argv[1],'rb') as f:
-    # Sketchup
-    print(read_wchar(f))
-
-    #READ vERSION
-
-    print(read_wchar(f))
+    header['version'] = read_wchar(f)
     f.seek(16,1) #These can be 00'ed without breaking the model ???
     read_wchar(f)
 
     creation_date = datetime.fromtimestamp(read_int32_le(f))
-    log.debug(creation_date)
+    header['creation_date'] = creation_date
 
-    read_char(f)
+    header['junk2'] = read_char(f)
 
     version_map = {}
+    # read version map
     s = read_wchar(f)
     while s != "End-Of-Version-Map":
         v = struct.unpack('<I',f.read(4))[0]
         version_map[s] = v
-
-
         s = read_wchar(f)
-    print(version_map)
 
-    sections = []
-
+    sections = {}
+    # find all sections
     for n , v, offset, end_offset in skp_find_section(f):
-        print("SECTION:", end=" ")
-        print(n, v, offset, end_offset)
-        sections.append((n , v, offset, end_offset))
-        """
+        if n != None:
+            sections[n] = (v, offset, end_offset)
 
-        if n == 'CDib':
-            print('handle DIB')
-            read_CDib(f)
+    return version_map, sections, header
 
-        elif n == 'CAttributeNamed':
-            print('handle CAttributeName')
-            read_CAttributeNamed(f)
-        elif n == 'CCamera':
-            print('handle CCamera')
-            read_CCamera(f)
-        elif n == 'CMaterial':
-            print('handle CMaterial')
-            read_CMaterial(f)
-        elif n == 'CArcCurve':
-            pass #f.seek(2000,1)
-        elif n == 'CSkFont':
-            pass
-        elif n == 'CLayer':
-            pass
-        elif n == 'CAttributeContainer':
-            pass
-            #read_CLayer(f)
-        elif n == 'CComponentDefinition':
-            read_CComponentDefinition(f)
-        else:
-            log.debug("Not handled {}".format(n))
-            f.seek(int(0xf),1)
-        """
+
+import hashlib
+import math
+
+def get_chunks(f, offset, endoffset, chunksize):
+    f.seek(offset)
+    todo = math.floor((endoffset - offset) / chunksize)
+    rest = (endoffset - offset) - todo * chunksize
+    for i in range(todo):
+        yield f.read(chunksize)
+    yield f.read(rest)
+
+def md5sum(f, offset, endoffset):
+    d = hashlib.md5()
+    for buf in get_chunks(f, offset, endoffset, 128):
+        d.update(buf)
+    return d.hexdigest()
+
+
+with open(sys.argv[1],'rb') as f:
+    with open(sys.argv[2],'rb') as f2:
+        version_map, sections, header = read_skp_file(f)
+        version_map2, sections2, header2 = read_skp_file(f2)
+
+
+
+        for n, k in sections.items():
+            v, offset, end_offset = k
+            v2, offset2, end_offset2 = sections2[n]
+            print(n, v,v2)
+            print(md5sum(f, offset, end_offset))
+            print(md5sum(f2, offset2, end_offset2))
+
+
 
     sys.exit(0)
+
+"""
+
+if n == 'CDib':
+    print('handle DIB')
+    read_CDib(f)
+
+elif n == 'CAttributeNamed':
+    print('handle CAttributeName')
+    read_CAttributeNamed(f)
+elif n == 'CCamera':
+    print('handle CCamera')
+    read_CCamera(f)
+elif n == 'CMaterial':
+    print('handle CMaterial')
+    read_CMaterial(f)
+elif n == 'CArcCurve':
+    pass #f.seek(2000,1)
+elif n == 'CSkFont':
+    pass
+elif n == 'CLayer':
+    pass
+elif n == 'CAttributeContainer':
+    pass
+    #read_CLayer(f)
+elif n == 'CComponentDefinition':
+    read_CComponentDefinition(f)
+else:
+    log.debug("Not handled {}".format(n))
+    f.seek(int(0xf),1)
+"""
 

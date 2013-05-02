@@ -237,6 +237,8 @@ def read_skp_file(f):
 
     header['junk2'] = read_char(f)
 
+
+
     version_map = {}
     # read version map
     s = read_wchar(f)
@@ -272,10 +274,30 @@ def md5sum(f, offset, endoffset):
     return d.hexdigest()
 
 
+
+def print_hex(f, offset, endoffset):
+    f.seek(offset)
+    chunksize = 16
+    todo = math.floor((endoffset - offset) / chunksize)
+    rest = (endoffset - offset) - todo * chunksize
+    for i in range(todo):
+        s = ""
+        for i in range(chunksize):
+            b = read_int8(f)
+            print("{:02X} ".format(b), end='')
+            s = s +"{:c}".format(b if b < 127 and b > 32 else 46)
+        print("\t{}".format(s))
+    for i in range(rest):
+        print("{:02X} ".format(read_int8(f)), end='')
+    print("")
+
+
+
 with open(sys.argv[1],'rb') as f:
     with open(sys.argv[2],'rb') as f2:
         version_map, sections, header = read_skp_file(f)
         version_map2, sections2, header2 = read_skp_file(f2)
+
 
 
         for n, k in sections.items():
@@ -284,18 +306,30 @@ with open(sys.argv[1],'rb') as f:
             sum1 = md5sum(f, offset, end_offset)
             sum2 = md5sum(f2, offset2, end_offset2)
 
+            print("{} {} {} {} ".format(offset, n, hex(offset),hex(end_offset) ))
+
             if sum1 !=  sum2:
                 f_1 = open('/tmp/' + n + '1','wb')
                 f.seek(offset)
                 f_1.write(f.read(end_offset - offset))
-                f_1.close()
+
                 f_2 = open('/tmp/'+ n + '2','wb')
                 f2.seek(offset2)
                 f_2.write(f2.read(end_offset2 - offset2))
                 f_2.close()
                 print("Difference in sections {}: {} {}".format(n,sum1, sum2))
+                f.seek(offset)
+                f2.seek(offset2)
+                print('---')
+                print_hex(f, offset, end_offset)
+                print('+++')
+                print_hex(f2, offset2, end_offset2)
+                f_1.close()
+                f_2.close()
             else:
                 print("No Difference sections {}".format(n))
+
+
 
 
     sys.exit(0)

@@ -108,11 +108,11 @@ def read_CCamera(stream):
 
 
 def read_material(stream):
-    read_int16_le(stream)
     log.debug("OFFEST {}".format(hex(stream.tell())))
     unknown = read_int16_le(stream) # seems to be 0
     name = read_wchar(stream)
     type = read_int8(stream)
+    m = {'name': name}
 
 
     if type == int(0x0000):
@@ -122,6 +122,11 @@ def read_material(stream):
         g = read_int8(stream)
         b = read_int8(stream)
         a = read_int8(stream)
+        m['r'] = r
+        m['g'] = g
+        m['b'] = b
+        m['a'] = a
+
 
         log.debug("Material {} color : ({} {} {} {})".format(name, r,g,b,a))
         log.debug("OFFEST {}".format(hex(stream.tell())))
@@ -155,15 +160,15 @@ def read_material(stream):
             stream.seek(16,1)
         else:
             stream.seek(16+8,1)
-
-        log.debug("Filename {}".format(read_wchar(stream)))
+        m['filename'] = read_wchar(stream)
+        log.debug("Filename {}".format(m['filename']))
         stream.seek(8,1)
         stream.seek(13,1)
 
     else:
         log.error("type: {} Cant make sense of this".format(type))
 
-    return None
+    return m
 
 
 def read_CMaterial(stream):
@@ -171,11 +176,8 @@ def read_CMaterial(stream):
 
 
     while True:
+        read_int16_le(stream) # unknown
         read_material(stream)
-
-
-
-
         x1 = read_int32_be(stream)
 
         x2 = read_int32_be(stream)
@@ -183,8 +185,6 @@ def read_CMaterial(stream):
         #if x2 != 57407:
         #    break
         x3 = read_int32_be(stream)
-
-
 
         stream.seek(-2,1)
         b = read_int8(stream)
@@ -210,7 +210,9 @@ def read_CLayer(stream):
         s1 = read_wchar(stream)
         #log.debug("LAYER: {}".format(s1))
         l['name'] = s1
-        stream.seek(-1,1) # XXX read_material function should be fixed instead
+        # Here is a 16 bit value indicating the visible state of the layer
+        l['h'] = read_int8(stream)
+        #stream.seek(-1,1) # XXX read_material function should be fixed instead
         l['material'] = read_material(stream)
 
         stream.seek(int(0x0d),1) # 13 bytes
@@ -371,6 +373,9 @@ with open(sys.argv[1],'rb') as f:
                     print(hex(f.tell()))
                     read_CLayer(f2)
                     read_CLayer(f)
+                    import sys
+
+                    sys.exit(0)
 
                 f_1.close()
                 f_2.close()

@@ -14,7 +14,7 @@ logging.basicConfig(format='%(levelname)s %(asctime)s %(funcName)s %(lineno)d %(
 
 def skp_find_section(stream):
     '''Find all the sections in the sketchup file and their length'''
-    pName, pVer, pOffset = None, None, None
+    pName, pVer, pOffset = None, None, 0
     while True:
         try:
             while struct.unpack('B',stream.read(1))[0] != int(0xff):
@@ -36,12 +36,12 @@ def skp_find_section(stream):
                 stream.seek(offset)
                 continue
 
-            yield pName, pVer, pOffset, offset
+            yield pName, pVer, pOffset -1, offset -1
             pName, pVer, pOffset = name, ver, offset
         except UnicodeDecodeError as e:
             stream.seek(offset + 2)
         except struct.error as e:
-            yield pName, pVer, pOffset, stream.tell()
+            yield pName, pVer, pOffset -1, stream.tell() -1
             break
 
 
@@ -220,6 +220,19 @@ def read_CLayer(stream):
     print(layers)
 
 
+def read_CVertex(stream):
+    print(read_char(stream))
+    w1 = read_int16_le(stream)
+    print(w1)
+    v1, v2, v3 = struct.unpack('<d',stream.read(8))[0], struct.unpack('<d',stream.read(8))[0], struct.unpack('<d',stream.read(8))[0]
+    print(v1, v2, v3)
+
+
+
+    #v1, v2, v3 = struct.unpack('<d',stream.read(24))
+    #print(v1, v2, v3)
+    pass
+
 def read_CComponentDefinition(stream):
     w1 = read_int16_le(stream)
 
@@ -314,7 +327,7 @@ with open(sys.argv[1],'rb') as f:
                 f_1.write(f.read(end_offset - offset))
 
                 f_2 = open('/tmp/'+ n + '2','wb')
-                f2.seek(offset2)
+                f2.seek(offset2 )
                 f_2.write(f2.read(end_offset2 - offset2))
                 f_2.close()
                 print("Difference in sections {}: {} {}".format(n,sum1, sum2))
@@ -324,8 +337,16 @@ with open(sys.argv[1],'rb') as f:
                 print_hex(f, offset, end_offset)
                 print('+++')
                 print_hex(f2, offset2, end_offset2)
+
+                if n == 'CVertex':
+                    print('DECODING CVertex')
+                    f.seek(offset)
+                    f2.seek(offset2)
+                    read_CVertex(f)
+
                 f_1.close()
                 f_2.close()
+
             else:
                 print("No Difference sections {}".format(n))
 

@@ -50,7 +50,6 @@ def read_int8(stream):
     return struct.unpack('B',stream.read(1))[0]
 
 
-
 def write_png(stream=None, length=0, name='/tmp/t.png', ):
     if stream and length > 0:
         print("Writing ", hex(stream.tell()), " " ,length)

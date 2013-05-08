@@ -162,8 +162,8 @@ def read_material(stream):
 
     else:
         log.error("type: {} Cant make sense of this".format(type))
-        import sys
-        sys.exit(0)
+
+    return None
 
 
 def read_CMaterial(stream):
@@ -198,34 +198,53 @@ def read_CMaterial(stream):
 
 
 def read_CLayer(stream):
+    print(read_char(stream))
     layers = []
-    w1 = 0
-    while w1 != 36:
-        log.debug("OFFEST {}".format(hex(stream.tell())))
+    w1 = 32782
+    while w1 == 32782:
+        l = {'offset': hex(stream.tell())}
         w1 = read_int16_le(stream)
-        log.debug("w1: {}".format(w1))
-        #if w1==0:
-        #    #raise Exception("w1 cannot be 0")
-        #    pass
+        l['w1'] = w1
+        #log.debug("w1: {}".format(w1))
 
         s1 = read_wchar(stream)
-        log.debug("LAYER: {}".format(s1))
-        u1 = read_int8(stream)
-        read_material(stream)
-        stream.seek(13,1)
+        #log.debug("LAYER: {}".format(s1))
+        l['name'] = s1
+        stream.seek(-1,1) # XXX read_material function should be fixed instead
+        l['material'] = read_material(stream)
+
+        stream.seek(int(0x0d),1) # 13 bytes
         w2 = read_int16_le(stream)
-        log.debug("w2: {}".format(w2))
+        #log.debug("w2: {}".format(w2))
+        #print(hex(stream.tell()))
+        #log.debug("W2: {}".format(hex(w2)))
+        l['w2'] = w2
+        layers.append(l)
+        if w2 != 32782:
+            break
+        if w2 == 15:
+            break
         w1 = w2
 
     print(layers)
+    return layers
 
 
 def read_CVertex(stream):
     print(read_char(stream))
     w1 = read_int16_le(stream)
     print(w1)
-    v1, v2, v3 = struct.unpack('<d',stream.read(8))[0], struct.unpack('<d',stream.read(8))[0], struct.unpack('<d',stream.read(8))[0]
-    print(v1, v2, v3)
+    for i in range(3):
+        v1, v2, v3 = struct.unpack('<ddd',stream.read(8 * 3))
+        unknown = read_int16_le(stream)
+        print(v1, v2, v3)
+        print("UNKNOWN: {} {} offset: {}".format(unknown, hex(unknown), hex(stream.tell())))
+        if unknown == int(0x8012):
+            stream.seek(2,1)
+        elif unknown == int(0x00):
+            stream.seek(14,1)
+        else:
+            break
 
 
 
@@ -343,6 +362,15 @@ with open(sys.argv[1],'rb') as f:
                     f.seek(offset)
                     f2.seek(offset2)
                     read_CVertex(f)
+                    read_CVertex(f2)
+
+                if n == 'CLayer':
+                    print('DECODING CLayer')
+                    f.seek(offset)
+                    f2.seek(offset2)
+                    print(hex(f.tell()))
+                    read_CLayer(f2)
+                    read_CLayer(f)
 
                 f_1.close()
                 f_2.close()
